@@ -5,15 +5,15 @@ A lightweight, dependency-free Python tool that triages an inbox: it **scores ev
 ![Sample output](preview.png)
 
 ## Features
-- **Weighted scoring** – keywords carry positive or negative weights (`interview` +5, `% off` −4…); a keyword in the subject line counts double.
-- **Sender signals** – `.edu` senders get a boost; `newsletter` / `marketing` senders get a penalty.
-- **Anti-clickbait rule** – ALL-CAPS or `!!` subjects get a penalty, so "BIG SALE!!" isn't mistaken for urgency.
-- **Categories** – Career, Academic, Promotion, Normal.
-- **Deadline extraction** – regex finds phrases like `by Friday midnight`, `by Nov 12`, `on 11/15`, `next week`.
-- **Reply detection** � flags emails from real people that ask a question or request a response (`please reply`, `your availability`, `?`), and ignores promotions and `noreply` senders.
-- **Draft replies** � fills a category-specific template (Career / Academic / Normal) with the sender's name, the subject and any deadline, leaving `[ADD TIMES]`-style placeholders for you to edit before sending. Nothing is ever sent automatically.
-- **Priority levels** – URGENT / IMPORTANT / NORMAL / LOW, with color-coded terminal output.
-- **JSON in, JSON out** – run it on your own emails and export the results.
+- **Weighted scoring** - keywords carry positive or negative weights (`interview` +5, `% off` -4...); a keyword in the subject line counts double.
+- **Sender signals** - `.edu` senders get a boost; `newsletter` / `marketing` senders get a penalty.
+- **Anti-clickbait rule** - ALL-CAPS or `!!` subjects get a penalty, so "BIG SALE!!" isn't mistaken for urgency.
+- **Categories** - Career, Academic, Promotion, Normal.
+- **Deadline extraction** - regex finds phrases like `by Friday midnight`, `by Nov 12`, `on 11/15`, `next week`.
+- **Reply detection** - flags emails from real people that ask a question or request a response (`please reply`, `your availability`, `?`), and ignores promotions and `noreply` senders.
+- **Draft replies** - fills a category-specific template (Career / Academic / Normal) with the sender's name, the subject and any deadline, leaving `[ADD TIMES]`-style placeholders for you to edit before sending. Nothing is ever sent automatically.
+- **Priority levels** - URGENT / IMPORTANT / NORMAL / LOW, with color-coded terminal output.
+- **JSON in, JSON out** - run it on your own emails and export the results.
 - **Unit tested** with Python's built-in `unittest`.
 
 ## Quick start
@@ -33,7 +33,7 @@ Input format (`sample_emails.json`):
 
 ## How it works
 1. `score_email()` sums keyword weights and sender-domain weights for each email.
-2. `priority_label()` maps the score to a level (≥8 URGENT, ≥3 IMPORTANT, <0 LOW).
+2. `priority_label()` maps the score to a level (>=8 URGENT, >=3 IMPORTANT, <0 LOW).
 3. `categorize()` picks the category whose keywords match most often.
 4. `extract_deadlines()` runs regex patterns for weekdays, month-day dates, numeric dates and relative terms.
 5. `needs_reply()` + `draft_reply()` flag emails awaiting an answer and build a draft.
