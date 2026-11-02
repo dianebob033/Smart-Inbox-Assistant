@@ -1,0 +1,32 @@
+[
+  {
+    "sender": "professor.lee@university.edu",
+    "subject": "URGENT: Final Project Deadline Extended",
+    "body": "Please submit your CS 150 project by Friday midnight. Late submissions will not be graded."
+  },
+  {
+    "sender": "newsletter@shopping.com",
+    "subject": "BIG SALE 50% OFF TODAY!!",
+    "body": "Limited time deal on electronics and clothes. Click to unsubscribe."
+  },
+  {
+    "sender": "recruiter@techcompany.com",
+    "subject": "Interview Invitation - Software Engineer Intern",
+    "body": "We would like to schedule a technical interview next week. Please reply with your availability by Nov 12."
+  },
+  {
+    "sender": "registrar@university.edu",
+    "subject": "Reminder: Spring registration opens soon",
+    "body": "Your registration window opens on 11/15. Meet with your counselor before then."
+  },
+  {
+    "sender": "friend@gmail.com",
+    "subject": "Study group this weekend?",
+    "body": "Want to review for the midterm exam together on Saturday?"
+  },
+  {
+    "sender": "marketing@app-store.com",
+    "subject": "Your weekly promo picks",
+    "body": "Check out this week's top apps. Unsubscribe anytime."
+  }
+]
