@@ -4,7 +4,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from inbox_assistant import Email, categorize, extract_deadlines, score_email, triage  # noqa: E402
+from inbox_assistant import (  # noqa: E402
+    Email, categorize, extract_deadlines, needs_reply, score_email, sender_name, triage,
+)
 
 
 class TestInboxAssistant(unittest.TestCase):
@@ -41,6 +43,25 @@ class TestInboxAssistant(unittest.TestCase):
         ]
         results = triage(emails)
         self.assertEqual(results[0].sender, "prof@u.edu")
+
+    def test_needs_reply_for_direct_question(self):
+        e = Email("recruiter@co.com", "Interview", "Please reply with your availability.")
+        self.assertTrue(needs_reply(e, "Career"))
+
+    def test_no_reply_for_promotions_or_noreply(self):
+        promo = Email("deals@shop.com", "Want 50% off?", "sale")
+        bot = Email("noreply@bank.com", "Can you verify?", "statement ready")
+        self.assertFalse(needs_reply(promo, "Promotion"))
+        self.assertFalse(needs_reply(bot, "Normal"))
+
+    def test_draft_mentions_sender_and_deadline(self):
+        e = Email("jane.doe@co.com", "Interview Invitation", "Please reply by Nov 12.")
+        result = triage([e])[0]
+        self.assertIn("Hi Jane Doe", result.draft)
+        self.assertIn("Nov 12", result.draft)
+
+    def test_sender_name(self):
+        self.assertEqual(sender_name("professor.lee@university.edu"), "Professor Lee")
 
 
 if __name__ == "__main__":

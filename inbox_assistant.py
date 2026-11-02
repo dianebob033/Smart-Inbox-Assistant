@@ -4,13 +4,14 @@ Smart Inbox Assistant
 A lightweight, dependency-free email triage tool.
 
 It scores each email against weighted keyword rules and sender-domain
-signals, assigns a category (Urgent / Career / Academic / Promotion /
-Normal), extracts deadlines mentioned in the text, and prints a
-prioritized report. Optionally exports the results as JSON.
+signals, assigns a category (Career / Academic / Promotion / Normal),
+extracts deadlines, detects which emails are waiting on a reply, and
+drafts a reply for each one for you to review before sending.
 
 Usage:
     python inbox_assistant.py                      # run on bundled sample data
     python inbox_assistant.py -i my_emails.json    # run on your own emails
+    python inbox_assistant.py -d                   # also print draft replies
     python inbox_assistant.py -o report.json       # also export a JSON report
 """
 
@@ -20,6 +21,7 @@ import argparse
 import json
 import re
 import sys
+import textwrap
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
@@ -65,6 +67,29 @@ DEADLINE_PATTERNS = [
     re.compile(r"\b(tomorrow|tonight|today|next week|end of (?:the )?day)\b", re.I),
 ]
 
+# phrases that mean the sender is waiting on an answer
+REPLY_SIGNALS = (
+    "please reply", "reply with", "let me know", "let us know", "your availability",
+    "can you", "could you", "would you", "please confirm", "rsvp", "want to",
+)
+NO_REPLY_SENDERS = ("noreply", "no-reply", "newsletter", "marketing", "notifications")
+
+REPLY_TEMPLATES: dict[str, str] = {
+    "Career": (
+        "Hi {name},\n\nThank you for reaching out about \"{subject}\". I'm very interested "
+        "and would be glad to move forward.{deadline_line}\n\nI'm generally available "
+        "[ADD TIMES]. Please let me know what works best for you.\n\nBest regards,\n[Your Name]"
+    ),
+    "Academic": (
+        "Hi {name},\n\nThanks for your email about \"{subject}\".{deadline_line}\n\n"
+        "[YOUR ANSWER]\n\nBest,\n[Your Name]"
+    ),
+    "Normal": (
+        "Hi {name},\n\nThanks for your message about \"{subject}\".{deadline_line}\n\n"
+        "[YOUR ANSWER]\n\nBest,\n[Your Name]"
+    ),
+}
+
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -86,6 +111,8 @@ class TriageResult:
     category: str
     deadlines: list[str] = field(default_factory=list)
     matched: list[str] = field(default_factory=list)
+    needs_reply: bool = False
+    draft: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -136,6 +163,28 @@ def extract_deadlines(text: str) -> list[str]:
     return found
 
 
+def needs_reply(email: Email, category: str) -> bool:
+    """True when a real person is asking us something and expects an answer."""
+    sender = email.sender.lower()
+    if category == "Promotion" or any(s in sender for s in NO_REPLY_SENDERS):
+        return False
+    text = f"{email.subject} {email.body}".lower()
+    return "?" in text or any(sig in text for sig in REPLY_SIGNALS)
+
+
+def sender_name(sender: str) -> str:
+    """'professor.lee@university.edu' -> 'Professor Lee'."""
+    local = sender.split("@")[0]
+    return " ".join(part.capitalize() for part in re.split(r"[._\-]+", local) if part) or "there"
+
+
+def draft_reply(email: Email, category: str, deadlines: list[str]) -> str:
+    template = REPLY_TEMPLATES.get(category, REPLY_TEMPLATES["Normal"])
+    deadline_line = f" I've noted the timeline ({deadlines[0]})." if deadlines else ""
+    return template.format(name=sender_name(email.sender), subject=email.subject,
+                           deadline_line=deadline_line)
+
+
 def priority_label(score: int) -> str:
     if score >= URGENT_THRESHOLD:
         return "URGENT"
@@ -150,14 +199,19 @@ def triage(emails: list[Email]) -> list[TriageResult]:
     results = []
     for e in emails:
         score, matched = score_email(e)
+        category = categorize(e)
+        deadlines = extract_deadlines(f"{e.subject} {e.body}")
+        reply = needs_reply(e, category)
         results.append(TriageResult(
             sender=e.sender,
             subject=e.subject,
             score=score,
             priority=priority_label(score),
-            category=categorize(e),
-            deadlines=extract_deadlines(f"{e.subject} {e.body}"),
+            category=category,
+            deadlines=deadlines,
             matched=matched,
+            needs_reply=reply,
+            draft=draft_reply(e, category, deadlines) if reply else "",
         ))
     return sorted(results, key=lambda r: r.score, reverse=True)
 
@@ -186,10 +240,21 @@ def print_report(results: list[TriageResult], color: bool = True) -> None:
         print(f"             from: {r.sender}")
         if r.deadlines and r.priority != "LOW":
             print(f"             deadline: {', '.join(r.deadlines)}")
+        if r.needs_reply:
+            print("             >> needs reply - draft ready")
     print("-" * 72)
     counts = {p: sum(r.priority == p for r in results) for p in COLORS}
-    print(" Summary: " + " | ".join(f"{k}: {v}" for k, v in counts.items()))
+    print(" Summary: " + " | ".join(f"{k}: {v}" for k, v in counts.items())
+          + f" | replies needed: {sum(r.needs_reply for r in results)}")
     print("=" * 72)
+
+
+def print_drafts(results: list[TriageResult]) -> None:
+    for r in results:
+        if r.draft:
+            print(f"\n--- Draft reply to {r.sender} | Re: {r.subject} ---")
+            for para in r.draft.split("\n"):
+                print(textwrap.fill(para, width=72) if para else "")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -198,6 +263,8 @@ def main(argv: list[str] | None = None) -> int:
                         default=Path(__file__).with_name("sample_emails.json"),
                         help="JSON file with a list of {sender, subject, body}")
     parser.add_argument("-o", "--output", type=Path, help="write the report as JSON")
+    parser.add_argument("-d", "--drafts", action="store_true",
+                        help="print draft replies for emails that need one")
     parser.add_argument("--no-color", action="store_true", help="disable ANSI colors")
     args = parser.parse_args(argv)
 
@@ -207,6 +274,8 @@ def main(argv: list[str] | None = None) -> int:
 
     results = triage(load_emails(args.input))
     print_report(results, color=not args.no_color)
+    if args.drafts:
+        print_drafts(results)
 
     if args.output:
         args.output.write_text(json.dumps([asdict(r) for r in results], indent=2), encoding="utf-8")
